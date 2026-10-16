@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>مكتب الركن — نموذج ثلاثي الأبعاد</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1b1d; font-family: "SF Arabic", "Geeza Pro", -apple-system, system-ui, sans-serif; }
+  #panel {
+    position: absolute; top: 12px; right: 12px; width: 260px; padding: 12px 14px; z-index: 10;
+    background: rgba(20,20,24,.86); color: #ddd; border-radius: 10px; font-size: 13px;
+    max-height: calc(100vh - 48px); overflow-y: auto;
+    backdrop-filter: blur(6px); box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  }
+  #panel h1 { font-size: 15px; margin: 0 0 8px; color: #fff; }
+  #panel h2 { font-size: 12px; color: #8a8f98; margin: 12px 0 6px; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0; }
+  .row input[type=number] { width: 56px; background: #2a2a30; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 4px; direction: ltr; }
+  .row select { background: #2a2a30; color: #fff; border: 1px solid #444; border-radius: 4px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { background: #33363d; color: #eee; border: 1px solid #4a4d55; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-family: inherit; }
+  button:hover { background: #41454e; }
+  summary { cursor: pointer; list-style: none; }
+  summary h2 { display: inline-block; }
+  summary h2::before { content: '◂ '; }
+  details[open] summary h2::before { content: '▾ '; }
+  .row input[type=color] { width: 56px; height: 22px; padding: 0; border: 1px solid #444; border-radius: 4px; background: none; }
+  .swatches { display: flex; gap: 5px; margin: 4px 0 2px; }
+  .swatches button { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 2px solid #555; }
+  .swatches button:hover { border-color: #fff; }
+  #info { color: #7fc8ff; margin-top: 8px; }
+  #warn { color: #ffb454; margin-top: 8px; min-height: 1em; }
+  .lbl { color: #fff; background: rgba(15,60,140,.85); padding: 1px 6px; border-radius: 4px; font: 600 11.5px "SF Arabic", "Geeza Pro", system-ui; white-space: nowrap; direction: rtl; }
+  .lbl.red { background: rgba(170,30,30,.85); }
+  .lbl.amber { background: rgba(150,95,10,.9); }
+  .lbl.grey { background: rgba(60,60,60,.85); }
+  #togglePanel { position: absolute; top: 12px; right: 12px; z-index: 11; display: none; font-size: 14px; padding: 6px 12px; }
+  #panel.collapsed { display: none; }
+  @media (max-width: 700px) {
+    #togglePanel { display: block; }
+    #panel { top: 52px; width: calc(100vw - 52px); max-width: 300px; max-height: calc(100vh - 110px); }
+    #hint { display: none; }
+  }
+  canvas { touch-action: none; }
+  #hint { position: absolute; bottom: 10px; right: 12px; color: #888; font-size: 12px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<button id="togglePanel">☰ الإعدادات</button>
+<div id="panel">
+  <h1>نموذج مكتب الركن</h1>
+  <h2>العرض</h2>
+  <div class="btns">
+    <button data-view="photo">زاوية الصورة</button>
+    <button data-view="top">من أعلى (مسقط)</button>
+    <button data-view="front">وضع الجلوس</button>
+    <button data-view="under">أسفل المكتب</button>
+    <button data-view="legs">أرجل U</button>
+  </div>
+  <h2>المكتب (سم)</h2>
+  <div class="row">الارتفاع <input id="deskH" type="number" value="75"></div>
+  <div class="row">سُمك السطح <input id="topT" type="number" value="2.5" step="0.5"></div>
+  <div class="row">العمق جهة الدولاب <input id="depthA" type="number" value="60"></div>
+  <div class="row">العمق جهة السرير <input id="depthB" type="number" value="50"></div>
+  <div class="row">عرض العمود <input id="poleW" type="number" value="20"></div>
+  <div class="row">عمق العمود <input id="poleD" type="number" value="10"></div>
+  <div class="row">من العمود للدولاب <input id="gapW" type="number" value="75"></div>
+  <div class="row">شكل الرجل
+    <select id="uStyle">
+      <option value="floor">U (القاعدة على الأرض)</option>
+      <option value="top">∩ (القاعدة تحت السطح)</option>
+    </select>
+  </div>
+  <h2>وحدة الأدراج (سم)</h2>
+  <div class="row">العرض <input id="drW" type="number" value="75"></div>
+  <div class="row">العمق <input id="drD" type="number" value="58"></div>
+  <div class="row">الارتفاع <input id="drH" type="number" value="80"></div>
+  <div class="row">عدد الأدراج <input id="drN" type="number" value="3" min="1" max="8"></div>
+  <div class="row">لون الواجهة <input id="drC" type="color" value="#17171a"></div>
+  <div class="swatches">
+    <button data-col="#17171a" title="أسود" style="background:#17171a"></button>
+    <button data-col="#f2efe8" title="أبيض" style="background:#f2efe8"></button>
+    <button data-col="#8a8d91" title="رمادي" style="background:#8a8d91"></button>
+    <button data-col="#5b3a22" title="خشب جوز" style="background:#5b3a22"></button>
+    <button data-col="#c9a77c" title="خشب بلوط" style="background:#c9a77c"></button>
+    <button data-col="#5f7a63" title="أخضر هادئ" style="background:#5f7a63"></button>
+    <button data-col="#22324f" title="كحلي" style="background:#22324f"></button>
+  </div>
+  <div class="row">المكان
+    <select id="drPos">
+      <option value="wardrobe" selected>جهة الدولاب</option>
+      <option value="bed">جهة السرير</option>
+    </select>
+  </div>
+  <details>
+    <summary><h2>السرير (سم)</h2></summary>
+    <div class="row">العرض <input id="bedW" type="number" value="160"></div>
+    <div class="row">الطول <input id="bedL" type="number" value="220"></div>
+    <div class="row">ارتفاع المرتبة <input id="bedMH" type="number" value="52"></div>
+    <div class="row">ارتفاع ظهر السرير <input id="bedHH" type="number" value="125"></div>
+    <div class="row">المسافة عن المكتب <input id="bedGX" type="number" value="0"></div>
+    <div class="row">المسافة عن الحائط <input id="bedGZ" type="number" value="0"></div>
+    <div class="row">ظهر السرير
+      <select id="bedRot">
+        <option value="0">ناحية المكتب</option>
+        <option value="270" selected>على الحائط</option>
+        <option value="180">الطرف البعيد</option>
+        <option value="90">الرجلين على الحائط</option>
+      </select>
+    </div>
+  </details>
+  <details>
+    <summary><h2>الدولاب (سم)</h2></summary>
+    <div class="row">العرض <input id="wW" type="number" value="300"></div>
+    <div class="row">العمق <input id="wD" type="number" value="62"></div>
+    <div class="row">الارتفاع <input id="wH" type="number" value="225"></div>
+    <div class="row">اتجاه الأبواب
+      <select id="wRot">
+        <option value="0" selected>ناحية الغرفة</option>
+        <option value="270">عكس المكتب</option>
+        <option value="90">ناحية المكتب</option>
+        <option value="180">ناحية الحائط</option>
+      </select>
+    </div>
+  </details>
+  <h2>إظهار</h2>
+  <div class="row"><label><input id="showDims" type="checkbox" checked> المقاسات</label></div>
+  <div class="row"><label><input id="showProps" type="checkbox"> الشاشة / الكرسي</label></div>
+  <div class="row"><label><input id="showFurn" type="checkbox"> الدولاب / السرير</label></div>
+  <div class="btns" style="margin-top:10px"><button id="copySettings">نسخ الإعدادات</button></div>
+  <div id="info"></div>
+  <div id="warn"></div>
+</div>
+<div id="hint">اسحب للتدوير · مرّر للتكبير · اسحب بالزر الأيمن للتحريك</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// World units = cm. Origin = room corner at floor.
+// +X runs along the 130 cm wall (corner -> bed), +Z along the 100 cm wall (corner -> wardrobe), +Y up.
+const ROOM_H = 280;
+let POLE_W = 20;             // pole width along the wardrobe-side wall
+let NOOK_Z = 95;             // corner to wardrobe side = pole width + clear wall (set in rebuild)
+const RUN_X = 130;           // pole face to bed headboard
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(innerWidth, innerHeight);
+// CSS2D positions labels from the left; keep this layer LTR so the RTL page doesn't push them off-screen
+Object.assign(labelRenderer.domElement.style, { position: 'absolute', top: 0, left: 0, direction: 'ltr', pointerEvents: 'none' });
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1b1b1d);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 1, 3000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// ---------- lighting ----------
+scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6b5030, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(260, 260, 220);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -250, right: 250, top: 250, bottom: -250, near: 10, far: 900 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+const ceilingLamp = new THREE.PointLight(0xfff0dd, 9000, 0, 2);
+ceilingLamp.position.set(120, 260, 140);
+scene.add(ceilingLamp);
+
+// ---------- procedural textures ----------
+function canvasTex(w, h, draw, repeat = [1, 1]) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(...repeat);
+  t.anisotropy = 8;
+  return t;
+}
+
+function woodGrain(base, dark, light) {
+  return (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 260; i++) {
+      const y = Math.random() * h, amp = 2 + Math.random() * 6, f = 0.004 + Math.random() * 0.01;
+      g.strokeStyle = Math.random() < 0.6 ? dark : light;
+      g.globalAlpha = 0.08 + Math.random() * 0.25;
+      g.lineWidth = 0.6 + Math.random() * 2.2;
+      g.beginPath();
+      for (let x = 0; x <= w; x += 8) g.lineTo(x, y + Math.sin(x * f + i) * amp);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  };
+}
+
+const walnutTex = canvasTex(1024, 512, woodGrain('#5b3a22', '#2e1a0c', '#7a5133'));
+const wardrobeTex = canvasTex(512, 1024, (g, w, h) => {
+  woodGrain('#4a2512', '#1f0e05', '#7a3f1d')(g, w, h);
+  g.strokeStyle = '#c9a24a'; g.lineWidth = 4; g.globalAlpha = .8;
+  g.strokeRect(50, 80, w - 100, h - 160);
+  g.beginPath(); g.arc(w / 2, h / 2, 70, 0, Math.PI * 2); g.stroke();
+});
+const floorTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#c98a45'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#b8783a';
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++)
+    if ((i + j) % 2) g.fillRect(i * 64 + 6, j * 64 + 6, 52, 52);
+  g.strokeStyle = '#e8c08a'; g.lineWidth = 5; g.strokeRect(0, 0, w, h);
+  g.strokeStyle = '#9a6430'; g.lineWidth = 2;
+  for (let k = 64; k < w; k += 64) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, h); g.moveTo(0, k); g.lineTo(w, k); g.stroke(); }
+}, [8, 8]);
+floorTex.rotation = Math.PI / 4;
+const quiltTex = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = '#efe6da'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = ['#c98c94', '#b46a78', '#9fb08f', '#d7b2b8'][i % 4];
+    g.globalAlpha = .7;
+    g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 8 + Math.random() * 18, 0, 7); g.fill();
+  }
+}, [2, 2]);
+
+const M = {
+  wall: new THREE.MeshStandardMaterial({ color: 0xece6dc, roughness: .95 }),
+  pole: new THREE.MeshStandardMaterial({ color: 0xf1ece4, roughness: .9 }),
+  skirting: new THREE.MeshStandardMaterial({ color: 0xc58642, roughness: .7 }),
+  floor: new THREE.MeshStandardMaterial({ map: floorTex, roughness: .55 }),
+  walnut: new THREE.MeshStandardMaterial({ map: walnutTex, roughness: .5 }),
+  walnutEdge: new THREE.MeshStandardMaterial({ color: 0x4a2e1a, roughness: .5 }),
+  drawerFront: new THREE.MeshStandardMaterial({ color: 0x17171a, roughness: .35, metalness: .1 }),
+  handle: new THREE.MeshStandardMaterial({ color: 0x9a9a9a, metalness: .8, roughness: .3 }),
+  cleat: new THREE.MeshStandardMaterial({ color: 0x3e2716, roughness: .7 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0x2b2b2e, metalness: .6, roughness: .4 }),
+  wardrobe: new THREE.MeshStandardMaterial({ map: wardrobeTex, roughness: .25, metalness: .05 }),
+  wardrobeDark: new THREE.MeshStandardMaterial({ color: 0x3a1c0c, roughness: .3 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: .9, roughness: .3 }),
+  quilt: new THREE.MeshStandardMaterial({ map: quiltTex, roughness: .9 }),
+  outlet: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .4 }),
+  black: new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: .4 }),
+  screen: new THREE.MeshStandardMaterial({ color: 0x1a2a44, emissive: 0x2a4a7a, emissiveIntensity: .5, roughness: .2 }),
+  chair: new THREE.MeshStandardMaterial({ color: 0x2d2f36, roughness: .8 }),
+  grommet: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: .6 }),
+};
+
+function box(w, h, d, mat, x, y, z, parent) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x + w / 2, y + h / 2, z + d / 2);   // x,y,z = min corner
+  m.castShadow = m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+function label(text, pos, cls = '', parent) {
+  const el = document.createElement('div');
+  el.className = 'lbl ' + cls; el.textContent = text;
+  const o = new CSS2DObject(el); o.position.copy(pos);
+  parent.add(o);
+  return o;
+}
+
+function dimLine(a, b, text, color, parent, cls) {
+  const g = new THREE.BufferGeometry().setFromPoints([a, b]);
+  parent.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color, depthTest: false })));
+  const tick = (p) => {
+    const dir = b.clone().sub(a).normalize();
+    const n = Math.abs(dir.y) > .9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+    const tg = new THREE.BufferGeometry().setFromPoints([p.clone().addScaledVector(n, -3), p.clone().addScaledVector(n, 3)]);
+    parent.add(new THREE.Line(tg, new THREE.LineBasicMaterial({ color, depthTest: false })));
+  };
+  tick(a); tick(b);
+  label(text, a.clone().add(b).multiplyScalar(.5), cls, parent);
+}
+
+// ---------- static room ----------
+const room = new THREE.Group(); scene.add(room);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), M.floor);
+floor.rotation.x = -Math.PI / 2; floor.position.set(200, 0, 200); floor.receiveShadow = true;
+room.add(floor);
+box(4, ROOM_H, 400, M.wall, -4, 0, -4, room);          // wall the drawers / pole are on (100 cm wall)
+box(400, ROOM_H, 4, M.wall, -4, 0, -4, room);          // 130 cm wall (outlet side)
+box(1, 8, 400, M.skirting, 0, 0, 0, room);
+box(400, 8, 1, M.skirting, 0, 0, 0, room);
+
+const dynamic = new THREE.Group(); scene.add(dynamic);
+const furniture = new THREE.Group(); scene.add(furniture);
+const props = new THREE.Group(); scene.add(props);
+const dims = new THREE.Group(); scene.add(dims);
+
+// Rotate a group about Y, then shift it so its footprint's min corner lands at (minX, minZ).
+function placeRotated(g, deg, minX, minZ) {
+  g.rotation.y = THREE.MathUtils.degToRad(deg);
+  g.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(g);
+  g.position.x += minX - bb.min.x;
+  g.position.z += minZ - bb.min.z;
+}
+
+function buildFurniture(P) {
+  furniture.clear();
+  const bedX = P.poleD + RUN_X;
+
+  // wardrobe, built with depth along local +x (front/doors at x = wd) and width along local +z
+  const wd = P.wD, ww = P.wW, wh = P.wH;
+  const w = new THREE.Group(); furniture.add(w);
+  box(wd, wh, ww, M.wardrobe, 0, 0, 0, w);
+  box(wd + 4, 10, ww + 4, M.wardrobeDark, -2, wh, -2, w);
+  box(.6, wh - 20, .8, M.wardrobeDark, wd, 10, ww / 2 - .4, w);      // door split
+  for (const z of [ww / 2 - 4, ww / 2 + 3]) box(1.5, 18, 1, M.gold, wd, wh * .45, z, w);
+  for (const z of [3, ww - 3]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(4, 4.5, wh, 20), M.wardrobeDark);
+    col.position.set(wd - 3, wh / 2, z); col.castShadow = true; w.add(col);
+    for (const y of [12, wh * .62]) {
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 6, 20), M.gold);
+      ring.position.set(wd - 3, y, z); w.add(ring);
+    }
+  }
+  placeRotated(w, P.wRot, 0, NOOK_Z);
+
+  // bed, built with head-to-foot along local +x (headboard at x = 0) and width along local +z
+  const bw = P.bedW, bl = P.bedL, frameH = Math.max(10, P.bedMH - 22);
+  const bed = new THREE.Group(); furniture.add(bed);
+  box(6, P.bedHH, bw, M.wardrobe, 0, 0, 0, bed);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, bw + 10, 20), M.wardrobeDark);
+  cap.rotation.x = Math.PI / 2; cap.position.set(3, P.bedHH + 3, bw / 2); bed.add(cap);
+  box(bl, frameH, bw, M.wardrobeDark, 6, 0, 0, bed);
+  const matt = new THREE.Mesh(new RoundedBoxGeometry(bl - 4, 22, bw - 4, 4, 5), M.quilt);
+  matt.position.set(6 + bl / 2, frameH + 11, bw / 2); matt.castShadow = matt.receiveShadow = true;
+  bed.add(matt);
+  const pillow = new THREE.Mesh(new RoundedBoxGeometry(35, 12, Math.min(70, bw - 20), 4, 5), M.quilt);
+  pillow.position.set(28, frameH + 28, bw / 2); pillow.castShadow = true; bed.add(pillow);
+  placeRotated(bed, P.bedRot, bedX + P.bedGX, P.bedGZ);
+}
+
+function buildDesk(P) {
+  dynamic.clear(); props.clear(); dims.clear();
+  const warn = [], info = [];
+  const { topT, depthA, depthB, poleD, drW, drD, drH, drN, drPos, uStyle } = P;
+  const bedX = poleD + RUN_X;
+  // the top rests on the drawer unit if the unit is taller than the requested clearance
+  const deskH = Math.max(P.deskH, drH + topT);
+  if (deskH > P.deskH) info.push(`تم رفع السطح إلى ${deskH} سم ليرتكز على وحدة الأدراج (${drH} سم).`);
+  const under = deskH - topT;
+
+  // pole (full height, in the corner)
+  box(poleD, ROOM_H, POLE_W, M.pole, 0, 0, 0, dynamic);
+  box(poleD + 1, 8, POLE_W + 1, M.skirting, 0, 0, 0, dynamic);
+
+  // outlet just past the pole on the 130 cm wall (from photo)
+  box(8, 12, .8, M.outlet, poleD + 8, 38, 0, dynamic);
+  box(1.2, 3, .3, M.black, poleD + 10, 43, .8, dynamic);
+  box(1.2, 3, .3, M.black, poleD + 13, 43, .8, dynamic);
+
+  // L-shaped top with notch around the pole. Shape drawn in (x, -z), extruded up.
+  const pts = [
+    [poleD, 0], [bedX - .5, 0], [bedX - .5, depthB], [depthA, depthB],
+    [depthA, NOOK_Z - .5], [0, NOOK_Z - .5], [0, POLE_W], [poleD, POLE_W],
+  ];
+  const shape = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+  // cable grommet near the outlet, in front of the pole
+  const gx = poleD + 12, gz = POLE_W - 10;
+  const hole = new THREE.Path(); hole.absarc(gx, -gz, 3, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+  const topGeo = new THREE.ExtrudeGeometry(shape, { depth: topT, bevelEnabled: true, bevelSize: .4, bevelThickness: .4, bevelSegments: 2, curveSegments: 24 });
+  topGeo.rotateX(-Math.PI / 2);
+  // planar UVs from world xz so the walnut grain runs along each run
+  const uv = topGeo.attributes.uv, pos = topGeo.attributes.position;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 140, pos.getZ(i) / 70);
+  const top = new THREE.Mesh(topGeo, [M.walnut, M.walnutEdge]);
+  top.position.y = under; top.castShadow = top.receiveShadow = true;
+  dynamic.add(top);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.2, .5, 8, 24), M.grommet);
+  ring.rotation.x = Math.PI / 2; ring.position.set(gx, deskH + .4, gz); dynamic.add(ring);
+
+  // wall cleats (hidden support along both walls and the pole face)
+  const c = 4;
+  box(2, c, NOOK_Z - POLE_W - 1, M.cleat, 0, under - c, POLE_W, dynamic);
+  box(bedX - poleD - 1, c, 2, M.cleat, poleD, under - c, 0, dynamic);
+  box(2, c, POLE_W, M.cleat, poleD, under - c, 0, dynamic);
+
+  // drawer unit; footprint is [x0,x1] x [z0,z1] in world space
+  let x0, z0, x1, z1, faceDir;
+  if (drPos === 'wardrobe') {
+    // fills the run between pole and wardrobe, fronts facing out into the room (+X)
+    x0 = Math.max(0, depthA - 2 - drD); z0 = NOOK_Z - drW; x1 = x0 + drD; z1 = NOOK_Z; faceDir = '+x';
+    if (drD > depthA) warn.push(`عمق الأدراج (${drD}) أكبر من عمق المكتب (${depthA}).`);
+    if (z0 < POLE_W) warn.push(`عرض الأدراج (${drW}) أكبر من المسافة بين العمود والدولاب (${NOOK_Z - POLE_W} سم).`);
+  } else {
+    // against the bed end, fronts facing out (+Z)
+    x0 = bedX - drW - 1; z0 = Math.max(0, depthB - 2 - drD); x1 = x0 + drW; z1 = z0 + drD; faceDir = '+z';
+    if (drD > depthB) warn.push(`عمق الأدراج (${drD}) أكبر من العمق جهة السرير (${depthB}).`);
+  }
+  buildDrawers(x0, z0, drW, drD, drH, Math.max(1, Math.round(drN)), faceDir);
+  const inDrawers = (x, z) => x >= x0 - 2 && x <= x1 + 2 && z >= z0 - 2 && z <= z1 + 2;
+
+  // U-shaped steel legs at whichever end the drawers aren't; plain leg at the inner corner only if the drawers don't already sit there
+  const t = 4;
+  function uLeg(axis, fixed, from, to) {
+    const len = to - from;
+    const at = (a, y, w, h, d) => axis === 'z' ? box(w, h, d, M.steel, fixed, y, a, dynamic) : box(d, h, w, M.steel, a, y, fixed, dynamic);
+    // at(): a = position along the leg's axis, w/d = size across/along it
+    at(from, 0, t, under, t);
+    at(to - t, 0, t, under, t);
+    if (uStyle === 'floor') {
+      at(from, 0, t, t, len);                    // bar along the floor
+      at(from, under - .6, t + 2, .6, 8);        // mounting plates under the top
+      at(to - 8, under - .6, t + 2, .6, 8);
+    } else {
+      at(from, under - t, t, t, len);            // bar under the top
+      for (const a of [from - 2, to - t - 2]) at(a, 0, t + 4, 1.2, t + 4); // feet pads
+    }
+  }
+  if (drPos === 'wardrobe') uLeg('z', bedX - 6 - t / 2, 3, depthB - 3);
+  else uLeg('x', NOOK_Z - 6 - t / 2, 3, depthA - 3);
+  if (!inDrawers(depthA - 6, depthB - 6)) box(t, under, t, M.steel, depthA - 6, 0, depthB - 6, dynamic);
+
+  // props for scale
+  buildProps({ ...P, deskH }, bedX);
+
+  // dimensions
+  const y = deskH + 3;
+  dimLine(new THREE.Vector3(poleD, y, -1), new THREE.Vector3(bedX, y, -1), `${RUN_X} سم`, 0xd33, dims, 'red');
+  dimLine(new THREE.Vector3(-1, y, POLE_W), new THREE.Vector3(-1, y, NOOK_Z), `${NOOK_Z - POLE_W} سم`, 0x1a9a4a, dims);
+  dimLine(new THREE.Vector3(-1, y + 10, 0), new THREE.Vector3(-1, y + 10, NOOK_Z), `${NOOK_Z} سم`, 0x2255dd, dims);
+  dimLine(new THREE.Vector3(0, y, NOOK_Z + 1), new THREE.Vector3(depthA, y, NOOK_Z + 1), `عمق ${depthA} سم`, 0xaaaaaa, dims, 'grey');
+  dimLine(new THREE.Vector3(bedX - 1, y, 0), new THREE.Vector3(bedX - 1, y, depthB), `عمق ${depthB} سم`, 0xaaaaaa, dims, 'grey');
+  dimLine(new THREE.Vector3(bedX - 3, 0, depthB + 3), new THREE.Vector3(bedX - 3, deskH, depthB + 3), `ارتفاع المكتب ${deskH} سم`, 0xaaaaaa, dims, 'grey');
+  label(`العمود \u2066${POLE_W}×${poleD}\u2069`, new THREE.Vector3(poleD / 2, deskH + 30, POLE_W / 2), 'grey', dims);
+  // drawer unit: width along its front, depth along its exposed side, height at the front corner
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), dc = 0xe0a030;
+  if (faceDir === '+x') {
+    dimLine(V(x1 + 2, 2, z0), V(x1 + 2, 2, z1), `عرض الأدراج ${drW} سم`, dc, dims, 'amber');
+    dimLine(V(x0, 2, z0 - 2), V(x1, 2, z0 - 2), `عمق الأدراج ${drD} سم`, dc, dims, 'amber');
+    dimLine(V(x1 + 2, 0, z0 + 3), V(x1 + 2, drH, z0 + 3), `ارتفاع الأدراج ${drH} سم`, dc, dims, 'amber');
+  } else {
+    dimLine(V(x0, 2, z1 + 2), V(x1, 2, z1 + 2), `عرض الأدراج ${drW} سم`, dc, dims, 'amber');
+    dimLine(V(x0 - 2, 2, z0), V(x0 - 2, 2, z1), `عمق الأدراج ${drD} سم`, dc, dims, 'amber');
+    dimLine(V(x0 + 3, 0, z1 + 2), V(x0 + 3, drH, z1 + 2), `ارتفاع الأدراج ${drH} سم`, dc, dims, 'amber');
+  }
+
+  document.getElementById('info').textContent = info.join(' ');
+  document.getElementById('warn').textContent = warn.join(' ');
+}
+
+function buildDrawers(x, z, w, d, h, n, faceDir) {
+  const g = new THREE.Group(); dynamic.add(g);
+  // carcass built in local space: width along local X, depth along local Z, front at local z = d
+  const t = 1.8, kick = 4;
+  box(w, t, d, M.walnut, 0, h - t, 0, g);           // top (walnut, like the real unit)
+  box(t, h - t, d, M.walnut, 0, 0, 0, g);           // sides
+  box(t, h - t, d, M.walnut, w - t, 0, 0, g);
+  box(w - 2 * t, h - t, 1, M.walnutEdge, t, 0, 0, g); // back
+  box(w - 2 * t, kick, 1, M.walnutEdge, t, 0, d - 2, g);
+  const gap = .4, fh = (h - t - kick - gap * (n + 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const fy = kick + gap + i * (fh + gap);
+    box(w - 2 * t - 2 * gap, fh, 1.6, M.drawerFront, t + gap, fy, d - 1.6, g);
+    // recessed grip line along the top of each front
+    box(w - 2 * t - 8, 1, .4, M.handle, t + 4, fy + fh - 3, d, g);
+  }
+  if (faceDir === '+x') {
+    // rotate so local front (+Z) faces world +X; local width runs along world -Z
+    g.rotation.y = Math.PI / 2;
+    g.position.set(x, 0, z + w);
+  } else {
+    g.position.set(x, 0, z);
+  }
+}
+
+function buildProps(P, bedX) {
+  const { deskH, depthA, depthB, poleD } = P;
+  // monitor on the long (bed) run, centred in its knee space
+  const mx = (depthA + bedX) / 2 - 2;
+  const mon = new THREE.Group(); props.add(mon);
+  box(62, 36, 2.5, M.black, -31, 14, -1.25, mon);
+  box(58, 32, .3, M.screen, -29, 16, 1.3, mon);
+  box(5, 14, 3, M.steel, -2.5, 0, -2, mon);
+  box(24, 1, 18, M.steel, -12, 0, -9, mon);
+  mon.position.set(mx, deskH, 14);
+  // keyboard
+  box(44, 2, 14, M.black, mx - 22, deskH, 30, props);
+  // laptop on the wardrobe run
+  box(32, 1.5, 22, M.steel, 14, deskH, 50, props);
+  const lid = box(32, 22, 1, M.steel, 0, 0, 0, props);
+  lid.position.set(30, deskH + 12, 39.5); lid.rotation.x = -.25;
+  // desk lamp in the inside corner beside the pole
+  const lamp = new THREE.Group(); props.add(lamp);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 2, 24), M.black); base.position.y = 1; lamp.add(base);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(.8, .8, 38, 8), M.black); arm.position.set(0, 20, 0); arm.rotation.z = .2; lamp.add(arm);
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(7, 10, 20, 1, true), M.black); shade.position.set(-4, 38, 0); shade.rotation.z = -.6; lamp.add(shade);
+  lamp.position.set(poleD + 10, deskH, POLE_W + 12);
+  // chair, facing the monitor; seat ~28 cm below the desktop
+  const sh = deskH - 28;
+  const ch = new THREE.Group(); props.add(ch);
+  const seat = new THREE.Mesh(new RoundedBoxGeometry(48, 8, 46, 3, 3), M.chair); seat.position.y = sh; ch.add(seat);
+  const back = new THREE.Mesh(new RoundedBoxGeometry(46, 55, 6, 3, 3), M.chair); back.position.set(0, sh + 35, 24); ch.add(back);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, sh - 6, 12), M.steel); post.position.y = (sh - 6) / 2 + 4; ch.add(post);
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2;
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(30, 2.5, 4), M.steel);
+    spoke.position.set(Math.cos(a) * 14, 6, Math.sin(a) * 14); spoke.rotation.y = -a; ch.add(spoke);
+  }
+  ch.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  ch.position.set(mx, 0, depthB + 32);
+}
+
+// ---------- UI ----------
+const ids = ['deskH', 'topT', 'depthA', 'depthB', 'poleW', 'poleD', 'gapW', 'drW', 'drD', 'drH', 'drN',
+  'bedW', 'bedL', 'bedMH', 'bedHH', 'bedGX', 'bedGZ', 'bedRot', 'wW', 'wD', 'wH', 'wRot'];
+function params() {
+  const p = Object.fromEntries(ids.map(id => [id, parseFloat(document.getElementById(id).value) || 0]));
+  p.drPos = document.getElementById('drPos').value;
+  p.uStyle = document.getElementById('uStyle').value;
+  p.drC = document.getElementById('drC').value;
+  return p;
+}
+function rebuild() {
+  const p = params();
+  M.drawerFront.color.set(p.drC);
+  POLE_W = p.poleW; NOOK_Z = p.poleW + p.gapW;
+  buildFurniture(p); buildDesk(p);
+  dims.visible = document.getElementById('showDims').checked;
+  props.visible = document.getElementById('showProps').checked;
+  furniture.visible = document.getElementById('showFurn').checked;
+}
+document.querySelectorAll('#panel input, #panel select').forEach(el => el.addEventListener('input', rebuild));
+document.querySelectorAll('[data-col]').forEach(b => b.addEventListener('click', () => {
+  document.getElementById('drC').value = b.dataset.col; rebuild();
+}));
+// copies every panel value as JSON (handy for making them the new defaults)
+document.getElementById('copySettings').addEventListener('click', async (e) => {
+  const vals = Object.fromEntries([...document.querySelectorAll('#panel input, #panel select')]
+    .map(el => [el.id, el.type === 'checkbox' ? el.checked : el.value]));
+  await navigator.clipboard.writeText(JSON.stringify(vals));
+  e.target.textContent = 'تم النسخ ✓'; setTimeout(() => e.target.textContent = 'نسخ الإعدادات', 1500);
+});
+
+const VIEWS = {
+  photo: { pos: [165, 185, 165], target: [35, 40, 50], fov: 75 },     // roughly where the real photos were taken from
+  top:   { pos: [75, 330, 60.1], target: [75, 0, 60], fov: 45 },
+  front: { pos: [100, 135, 125], target: [65, 72, 15], fov: 65 },
+  legs:  { pos: [75, 70, 120], target: [125, 38, 25], fov: 65, hideProps: true },
+  under: { pos: [130, 45, 95], target: [30, 32, 60], fov: 70, hideProps: true },
+};
+function setView(name) {
+  const v = VIEWS[name];
+  const propsBox = document.getElementById('showProps');
+  if (v.hideProps) { propsBox.checked = false; props.visible = false; }
+  camera.fov = v.fov || 55; camera.updateProjectionMatrix();
+  camera.position.set(...v.pos); controls.target.set(...v.target);
+  // portrait screens (phones) see less sideways, so back the camera off to keep the whole desk in frame
+  if (camera.aspect < 1) {
+    const off = camera.position.clone().sub(controls.target);
+    camera.position.copy(controls.target).addScaledVector(off, Math.pow(1 / camera.aspect, .6));
+  }
+  controls.update();
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+
+// on phones the panel starts collapsed so the 3D view gets the screen
+const panel = document.getElementById('panel'), toggle = document.getElementById('togglePanel');
+if (matchMedia('(max-width: 700px)').matches) panel.classList.add('collapsed');
+toggle.addEventListener('click', () => {
+  panel.classList.toggle('collapsed');
+  toggle.textContent = panel.classList.contains('collapsed') ? '☰ الإعدادات' : '✕ إغلاق';
+});
+
+// any panel field can be preset from the URL, e.g. ?bedRot=270&drH=72
+const q = new URLSearchParams(location.search);
+for (const [k, v] of q) {
+  const el = document.getElementById(k);
+  if (!el || k === 'view') continue;
+  if (el.type === 'checkbox') el.checked = v === '1' || v === 'true'; else el.value = v;
+}
+rebuild();
+setView(new URLSearchParams(location.search).get('view') || 'photo');
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight);
+});
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
